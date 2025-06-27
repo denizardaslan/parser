@@ -4,7 +4,7 @@ import re
 # Excel'den veriyi oku
 df = pd.read_excel("your_excel_file.xlsx", sheet_name="Sheet4")
 
-# Konum parse eden fonksiyon
+# Konum parser fonksiyonu
 def parse_location(loc):
     if pd.isnull(loc):
         return pd.Series([None, None, None])
@@ -14,16 +14,16 @@ def parse_location(loc):
     else:
         return pd.Series([None, None, None])
 
-# LFL konumlarını ayır
+# LFL ve DB konum bilgilerini ayır
 df[['LFL_Word', 'LFL_Low', 'LFL_High']] = df['LFL Locations'].apply(parse_location)
 df[['DB_Word', 'DB_Low', 'DB_High']] = df['DB Locations'].apply(parse_location)
 
-# LFL ve DB ayrı tablolar gibi düşün
+# LFL ve DB taraflarını ayrı tablolar gibi düşün
 lfl_df = df[['LFL Parameter Name', 'LFL_Word', 'LFL_Low', 'LFL_High']].dropna().drop_duplicates()
 db_df = df[['DB Parameter Name', 'DB_Word', 'DB_Low', 'DB_High']].dropna().drop_duplicates()
 
-# Outer join ile konuma göre karşılaştır
-merged = pd.merge(
+# Sadece konuma göre inner join
+matches = pd.merge(
     lfl_df,
     db_df,
     left_on=['LFL_Word', 'LFL_Low', 'LFL_High'],
@@ -31,15 +31,16 @@ merged = pd.merge(
     how='inner'
 )
 
-# İsim karşılaştırması (opsiyonel)
-merged['Same_Name'] = (
-    merged['LFL Parameter Name'].str.strip().str.lower() ==
-    merged['DB Parameter Name'].str.strip().str.lower()
-)
+# Kolonları sadeleştir
+matches = matches[[
+    'LFL Parameter Name', 'LFL_Word', 'LFL_Low', 'LFL_High',
+    'DB Parameter Name'
+]]
 
-# Sonuçları kaydet
-merged.to_excel("full_location_matches.xlsx", index=False)
+# Aynı konumda birden fazla LFL veya DB parametresi olabilir → gruplama doğaldır
 
-# Özet
-print(f"Eşleşen kayıt sayısı: {len(merged)}")
-print(merged[['LFL Parameter Name', 'DB Parameter Name', 'Same_Name']].head())
+# Excel'e kaydet
+matches.to_excel("location_based_matches.xlsx", index=False)
+
+print(f"Eşleşen kayıt sayısı: {len(matches)}")
+print(matches.head())
