@@ -1,10 +1,10 @@
 import pandas as pd
 import re
 
-# Excel dosyasını oku
+# Excel'den veriyi oku
 df = pd.read_excel("your_excel_file.xlsx", sheet_name="Sheet4")
 
-# Location parser fonksiyonu
+# Konum parse eden fonksiyon
 def parse_location(loc):
     if pd.isnull(loc):
         return pd.Series([None, None, None])
@@ -14,39 +14,32 @@ def parse_location(loc):
     else:
         return pd.Series([None, None, None])
 
-# Lokasyonları ayır
+# LFL konumlarını ayır
 df[['LFL_Word', 'LFL_Low', 'LFL_High']] = df['LFL Locations'].apply(parse_location)
 df[['DB_Word', 'DB_Low', 'DB_High']] = df['DB Locations'].apply(parse_location)
 
-# Konum karşılaştırması
-df['Same_Position'] = (
-    (df['LFL_Word'] == df['DB_Word']) &
-    (df['LFL_Low'] == df['DB_Low']) &
-    (df['LFL_High'] == df['DB_High'])
+# LFL ve DB ayrı tablolar gibi düşün
+lfl_df = df[['LFL Parameter Name', 'LFL_Word', 'LFL_Low', 'LFL_High']].dropna().drop_duplicates()
+db_df = df[['DB Parameter Name', 'DB_Word', 'DB_Low', 'DB_High']].dropna().drop_duplicates()
+
+# Outer join ile konuma göre karşılaştır
+merged = pd.merge(
+    lfl_df,
+    db_df,
+    left_on=['LFL_Word', 'LFL_Low', 'LFL_High'],
+    right_on=['DB_Word', 'DB_Low', 'DB_High'],
+    how='inner'
 )
 
-# İsim karşılaştırması (case-insensitive, strip boşlukları)
-df['Same_Name'] = (
-    df['LFL Parameter Name'].str.strip().str.lower() ==
-    df['DB Parameter Name'].str.strip().str.lower()
+# İsim karşılaştırması (opsiyonel)
+merged['Same_Name'] = (
+    merged['LFL Parameter Name'].str.strip().str.lower() ==
+    merged['DB Parameter Name'].str.strip().str.lower()
 )
 
-# Tüm kombinasyonlar için etiket
-def status(row):
-    if row['Same_Position'] and row['Same_Name']:
-        return '✅ Match (Position + Name)'
-    elif row['Same_Position']:
-        return '🟡 Position Match, Name Mismatch → Check Manually'
-    elif row['Same_Name']:
-        return '🟠 Name Match, Position Mismatch → Check Location'
-    else:
-        return '❌ No Match'
-
-df['Comparison_Result'] = df.apply(status, axis=1)
-
-# Sonuçları dışa aktar
-df.to_excel("comparison_result.xlsx", index=False)
+# Sonuçları kaydet
+merged.to_excel("full_location_matches.xlsx", index=False)
 
 # Özet
-summary = df['Comparison_Result'].value_counts()
-print(summary)
+print(f"Eşleşen kayıt sayısı: {len(merged)}")
+print(merged[['LFL Parameter Name', 'DB Parameter Name', 'Same_Name']].head())
