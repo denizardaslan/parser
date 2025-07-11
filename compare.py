@@ -105,7 +105,7 @@ def read_lfl_file(filepath):
     try:
         # Try to read based on file extension
         if filepath.endswith(".csv"):
-            df = pd.read_csv(filepath)
+            df = pd.read_csv(filepath, encoding="latin-1")
         elif filepath.endswith((".xls", ".xlsx")):
             df = pd.read_excel(filepath)
         else:
@@ -236,18 +236,6 @@ def generate_report(config_data, lfl_data, matches):
     print(f"Match rate (LFL perspective): {match_rate_lfl:.2f}%")
     print("=" * 60)
 
-    if matches:
-        print("\nMATCHING PARAMETERS:")
-        print("-" * 80)
-        print(
-            f"{'ID':<10} {'Name':<20} {'Word':<8} {'LowBit':<8} {'HighBit':<8} {'Length':<8}"
-        )
-        print("-" * 80)
-        for match in matches:
-            print(
-                f"{match['id']:<10} {match['name']:<20} {match['word']:<8} {match['lowbit']:<8} {match['highbit']:<8} {match['length']:<8}"
-            )
-
     # Save detailed report to Excel
     try:
         # Create detailed comparison DataFrame
@@ -266,18 +254,13 @@ def generate_report(config_data, lfl_data, matches):
 
         # Add all config parameters with match status
         for config_param in config_data:
-            matched_lfl_param = None
-            for m in matches:
-                if (
-                    m["id"] == config_param["id"]
-                    and m["word"] == config_param["word"]
-                    and m["lowbit"] == config_param["lowbit"]
-                    and m["highbit"] == config_param["highbit"]
-                ):
-                    matched_lfl_param = m
-                    break
-
-            is_matched = matched_lfl_param is not None
+            is_matched = any(
+                m["id"] == config_param["id"]
+                and m["word"] == config_param["word"]
+                and m["lowbit"] == config_param["lowbit"]
+                and m["highbit"] == config_param["highbit"]
+                for m in matches
+            )
 
             row_data = {
                 "Source": "Config",
@@ -290,16 +273,13 @@ def generate_report(config_data, lfl_data, matches):
                 "Matched": "Yes" if is_matched else "No",
             }
 
-            # Add additional columns values
+            # Add empty values for additional columns for config parameters
             for col_name in additional_columns:
-                if is_matched and matched_lfl_param and col_name in matched_lfl_param:
-                    row_data[col_name] = matched_lfl_param[col_name]
-                else:
-                    row_data[col_name] = ""
+                row_data[col_name] = ""
 
             report_data.append(row_data)
 
-        # Add LFL parameters that don't have matches
+        # Add all LFL parameters with match status
         for lfl_param in lfl_data:
             is_matched = any(
                 m["id"] == lfl_param["id"]
@@ -309,23 +289,22 @@ def generate_report(config_data, lfl_data, matches):
                 for m in matches
             )
 
-            if not is_matched:
-                row_data = {
-                    "Source": "LFL",
-                    "ID": lfl_param["id"],
-                    "Name": "N/A",
-                    "Word": lfl_param["word"],
-                    "LowBit": lfl_param["lowbit"],
-                    "HighBit": lfl_param["highbit"],
-                    "Length": lfl_param["length"],
-                    "Matched": "No",
-                }
+            row_data = {
+                "Source": "LFL",
+                "ID": lfl_param["id"],
+                "Name": "N/A",
+                "Word": lfl_param["word"],
+                "LowBit": lfl_param["lowbit"],
+                "HighBit": lfl_param["highbit"],
+                "Length": lfl_param["length"],
+                "Matched": "Yes" if is_matched else "No",
+            }
 
-                # Add additional columns values from LFL data
-                for col_name in additional_columns:
-                    row_data[col_name] = lfl_param.get(col_name, "")
+            # Add additional columns values from LFL data
+            for col_name in additional_columns:
+                row_data[col_name] = lfl_param.get(col_name, "")
 
-                report_data.append(row_data)
+            report_data.append(row_data)
 
         df_report = pd.DataFrame(report_data)
         df_report.to_excel("comparison_report.xlsx", index=False)
