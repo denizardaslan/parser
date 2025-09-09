@@ -20,19 +20,15 @@ USE_SYSTEM_PROXY = True  # Will use system proxy settings automatically
 def list_containers(connection_string):
     """List all containers in the storage account"""
     # Configure SSL settings
-    if DISABLE_SSL_VERIFICATION:
-        # Create unverified SSL context
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
+    if CUSTOM_CA_BUNDLE:
+        # Use custom certificate bundle
         blob_service = BlobServiceClient.from_connection_string(
-            connection_string, 
-            connection_verify=False
+            connection_string, connection_verify=CUSTOM_CA_BUNDLE
         )
     else:
+        # Use default system certificates
         blob_service = BlobServiceClient.from_connection_string(connection_string)
-    
+
     containers = blob_service.list_containers()
 
     container_names = []
@@ -46,19 +42,15 @@ def get_files_in_folder(connection_string, container_name, folder_path):
     """Get all file names from a specific folder in Azure Blob Storage"""
 
     # Configure SSL settings
-    if DISABLE_SSL_VERIFICATION:
-        # Create unverified SSL context
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
+    if CUSTOM_CA_BUNDLE:
+        # Use custom certificate bundle
         blob_service = BlobServiceClient.from_connection_string(
-            connection_string, 
-            connection_verify=False
+            connection_string, connection_verify=CUSTOM_CA_BUNDLE
         )
     else:
+        # Use default system certificates
         blob_service = BlobServiceClient.from_connection_string(connection_string)
-    
+
     container_client = blob_service.get_container_client(container_name)
 
     # Make sure folder path ends with /
