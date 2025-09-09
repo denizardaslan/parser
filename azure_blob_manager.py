@@ -1,56 +1,32 @@
 from azure.storage.blob import BlobServiceClient
 import pandas as pd
 import ssl
-import os
+from azure.core.pipeline.transport import RequestsTransport
 
 # CONFIGURATION - UPDATE THESE
 CONNECTION_STRING = "your_connection_string_here"
 CONTAINER_NAME = "your_container_name"  # Set this if you know it, or leave empty to list all containers
 FOLDER_PATH = "2024/PCMCIA"  # Change this to your folder
 
-# SSL CONFIGURATION - SECURE OPTIONS:
-# Option 1: Use company certificate bundle (RECOMMENDED)
-CUSTOM_CA_BUNDLE = None  # Set path to your company's certificate file if available
-# Example: CUSTOM_CA_BUNDLE = "/path/to/company/ca-bundle.pem"
-
-# Option 2: Use system certificates + company proxy settings
-USE_SYSTEM_PROXY = True  # Will use system proxy settings automatically
+# Disable SSL verification (NOT RECOMMENDED for production, only for testing!)
+ssl_context = ssl._create_unverified_context()
+transport = RequestsTransport(connection_verify=False, ssl_context=ssl_context)
 
 
 def list_containers(connection_string):
     """List all containers in the storage account"""
-    # Configure SSL settings
-    if CUSTOM_CA_BUNDLE:
-        # Use custom certificate bundle
-        blob_service = BlobServiceClient.from_connection_string(
-            connection_string, connection_verify=CUSTOM_CA_BUNDLE
-        )
-    else:
-        # Use default system certificates
-        blob_service = BlobServiceClient.from_connection_string(connection_string)
-
+    blob_service = BlobServiceClient.from_connection_string(
+        connection_string, transport=transport
+    )
     containers = blob_service.list_containers()
-
-    container_names = []
-    for container in containers:
-        container_names.append(container.name)
-
-    return container_names
+    return [container.name for container in containers]
 
 
 def get_files_in_folder(connection_string, container_name, folder_path):
     """Get all file names from a specific folder in Azure Blob Storage"""
-
-    # Configure SSL settings
-    if CUSTOM_CA_BUNDLE:
-        # Use custom certificate bundle
-        blob_service = BlobServiceClient.from_connection_string(
-            connection_string, connection_verify=CUSTOM_CA_BUNDLE
-        )
-    else:
-        # Use default system certificates
-        blob_service = BlobServiceClient.from_connection_string(connection_string)
-
+    blob_service = BlobServiceClient.from_connection_string(
+        connection_string, transport=transport
+    )
     container_client = blob_service.get_container_client(container_name)
 
     # Make sure folder path ends with /
