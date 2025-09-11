@@ -35,3 +35,52 @@ Write-Host "✅ Export complete. File saved at: $outputPath"
 
 # --- Clean up ---
 Remove-SFTPSession -SessionId $session.SessionId
+
+
+-----
+
+altında kaç sayı var onu hesaplama
+-------
+
+Import-Module Posh-SSH
+
+# --- Configuration ---
+$container = "/historical/2023/WQAR"
+$hostname  = "your.sftp.server"
+$port      = 22
+$username  = "your_username"
+$password  = "your_password"
+
+# --- Connect to SFTP ---
+$secpasswd = ConvertTo-SecureString $password -AsPlainText -Force
+$cred      = New-Object System.Management.Automation.PSCredential ($username, $secpasswd)
+$session   = New-SFTPSession -ComputerName $hostname -Port $port -Credential $cred -AcceptKey
+
+# --- Recursive file counting ---
+function Get-TotalFiles {
+    param (
+        [string]$Path,
+        [int]$SessionId
+    )
+
+    $total = 0
+    $items = Get-SFTPChildItem -SessionId $SessionId -Path $Path
+
+    foreach ($item in $items) {
+        if ($item.Attributes.IsDirectory) {
+            # Alt klasörü tara
+            $total += Get-TotalFiles -Path "$Path/$($item.Name)" -SessionId $SessionId
+        } else {
+            # Dosya ise say
+            $total += 1
+        }
+    }
+    return $total
+}
+
+# --- Hesaplama ---
+$totalFiles = Get-TotalFiles -Path $container -SessionId $session.SessionId
+Write-Host "Total files (including subfolders): $totalFiles"
+
+# --- Clean up ---
+Remove-SFTPSession -SessionId $session.SessionId
